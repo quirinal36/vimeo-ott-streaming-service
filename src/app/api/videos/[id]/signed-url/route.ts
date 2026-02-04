@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { generateSignedUrl, generateEmbedUrl } from '@/lib/cloudflare-stream'
 import { NextResponse } from 'next/server'
+import type { Video, Enrollment } from '@/types/database'
 
 // 비디오 Signed URL 발급
 export async function POST(
@@ -22,11 +23,13 @@ export async function POST(
     }
 
     // 비디오 정보 조회
-    const { data: video, error: videoError } = await supabase
+    const { data: videoData, error: videoError } = await supabase
       .from('videos')
-      .select('*, courses(*)')
+      .select('*')
       .eq('id', videoId)
       .single()
+
+    const video = videoData as Video | null
 
     if (videoError || !video) {
       return NextResponse.json(
@@ -36,12 +39,14 @@ export async function POST(
     }
 
     // 수강 등록 확인
-    const { data: enrollment, error: enrollmentError } = await supabase
+    const { data: enrollmentData, error: enrollmentError } = await supabase
       .from('enrollments')
       .select('*')
       .eq('user_id', user.id)
       .eq('course_id', video.course_id)
       .single()
+
+    const enrollment = enrollmentData as Enrollment | null
 
     if (enrollmentError || !enrollment) {
       return NextResponse.json(

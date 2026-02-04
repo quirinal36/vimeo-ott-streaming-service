@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import type { Video, WatchHistory } from '@/types/database'
 
 // 강의 상세 조회
 export async function GET(
@@ -62,13 +63,15 @@ export async function GET(
 
     // 각 비디오의 시청 기록 조회
     const videosWithProgress = await Promise.all(
-      (videos || []).map(async (video) => {
-        const { data: watchHistory } = await supabase
+      ((videos || []) as Video[]).map(async (video) => {
+        const { data } = await supabase
           .from('watch_history')
           .select('*')
           .eq('user_id', user.id)
           .eq('video_id', video.id)
           .single()
+
+        const watchHistory = data as WatchHistory | null
 
         return {
           ...video,

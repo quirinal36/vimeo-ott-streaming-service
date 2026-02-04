@@ -22,11 +22,13 @@ export async function POST(
     }
 
     // 비디오 정보 조회
-    const { data: video, error: videoError } = await supabase
+    const { data: videoData, error: videoError } = await supabase
       .from('videos')
       .select('course_id')
       .eq('id', videoId)
       .single()
+
+    const video = videoData as { course_id: string } | null
 
     if (videoError || !video) {
       return NextResponse.json(
@@ -51,8 +53,9 @@ export async function POST(
     }
 
     // 시청 기록 업데이트 (upsert)
-    const { data: watchHistory, error: historyError } = await supabase
-      .from('watch_history')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: watchHistory, error: historyError } = await (supabase
+      .from('watch_history') as any)
       .upsert(
         {
           user_id: user.id,
