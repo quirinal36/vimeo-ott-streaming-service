@@ -30,9 +30,13 @@ class CloudflareStreamService:
 
         exp = int(time.time()) + (expires_in_hours * 3600)
 
+        # kid는 header에 포함
+        headers = {
+            "kid": self.signing_key_id,
+        }
+
         payload = {
             "sub": video_id,
-            "kid": self.signing_key_id,
             "exp": exp,
             "downloadable": downloadable,
         }
@@ -48,7 +52,7 @@ class CloudflareStreamService:
                 {"type": "any", "action": "block"},
             ]
 
-        token = jwt.encode(payload, self.signing_key_pem, algorithm="RS256")
+        token = jwt.encode(payload, self.signing_key_pem, algorithm="RS256", headers=headers)
 
         return f"https://customer-{self.customer_code}.cloudflarestream.com/{video_id}/manifest/video.m3u8?token={token}"
 
@@ -63,9 +67,13 @@ class CloudflareStreamService:
 
         exp = int(time.time()) + (expires_in_hours * 3600)
 
+        # kid는 header에 포함
+        headers = {
+            "kid": self.signing_key_id,
+        }
+
         payload = {
             "sub": video_id,
-            "kid": self.signing_key_id,
             "exp": exp,
             "downloadable": downloadable,
         }
@@ -80,7 +88,7 @@ class CloudflareStreamService:
                 {"type": "any", "action": "block"},
             ]
 
-        token = jwt.encode(payload, self.signing_key_pem, algorithm="RS256")
+        token = jwt.encode(payload, self.signing_key_pem, algorithm="RS256", headers=headers)
 
         return f"https://customer-{self.customer_code}.cloudflarestream.com/{video_id}/iframe?token={token}"
 

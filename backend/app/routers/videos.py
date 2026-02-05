@@ -39,14 +39,13 @@ async def get_video(video_id: UUID, current_user: dict = Depends(get_current_use
         .select("*")
         .eq("user_id", str(current_user.id))
         .eq("course_id", video["course_id"])
-        .single()
         .execute()
     )
 
-    if not enrollment.data:
+    if not enrollment.data or len(enrollment.data) == 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enrolled in this course",
+            detail="이 강의에 대한 수강 권한이 없습니다",
         )
 
     return video
@@ -80,14 +79,13 @@ async def get_signed_url(video_id: UUID, current_user: dict = Depends(get_curren
         .select("*")
         .eq("user_id", str(current_user.id))
         .eq("course_id", video["course_id"])
-        .single()
         .execute()
     )
 
-    if not enrollment.data:
+    if not enrollment.data or len(enrollment.data) == 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enrolled in this course",
+            detail="이 강의에 대한 수강 권한이 없습니다",
         )
 
     # Signed URL 생성
@@ -95,14 +93,12 @@ async def get_signed_url(video_id: UUID, current_user: dict = Depends(get_curren
         video_id=video["cloudflare_video_id"],
         expires_in_hours=2,
         downloadable=False,
-        allowed_countries=["KR"],
     )
 
     iframe_url = cloudflare_service.generate_iframe_url(
         video_id=video["cloudflare_video_id"],
         expires_in_hours=2,
         downloadable=False,
-        allowed_countries=["KR"],
     )
 
     return {"signed_url": signed_url, "iframe_url": iframe_url, "expires_in": 7200}
@@ -138,14 +134,13 @@ async def update_progress(
         .select("*")
         .eq("user_id", str(current_user.id))
         .eq("course_id", video.data["course_id"])
-        .single()
         .execute()
     )
 
-    if not enrollment.data:
+    if not enrollment.data or len(enrollment.data) == 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enrolled in this course",
+            detail="이 강의에 대한 수강 권한이 없습니다",
         )
 
     # upsert로 시청 기록 업데이트

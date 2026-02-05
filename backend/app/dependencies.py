@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from app.services.supabase import get_supabase_client
+from app.services.supabase import get_supabase_client, get_supabase_admin_client
 
 security = HTTPBearer()
 
@@ -35,7 +35,8 @@ async def get_current_admin_user(
 ) -> dict:
     """관리자 권한 확인"""
 
-    supabase = get_supabase_client()
+    # admin 클라이언트 사용하여 RLS 우회
+    supabase = get_supabase_admin_client()
 
     # profiles 테이블에서 role 확인
     result = (

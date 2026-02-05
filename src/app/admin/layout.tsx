@@ -31,7 +31,8 @@ export default function AdminLayout({
         .eq('id', user.id)
         .single()
 
-      if (!profile || profile.role !== 'admin') {
+      const profileData = profile as { role: string } | null
+      if (!profileData || profileData.role !== 'admin') {
         router.push('/courses')
         return
       }

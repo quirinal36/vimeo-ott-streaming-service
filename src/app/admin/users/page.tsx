@@ -46,16 +46,16 @@ export default function AdminUsersPage() {
       supabase.from('enrollments').select('*'),
     ])
 
-    if (usersRes.data) setUsers(usersRes.data)
-    if (coursesRes.data) setCourses(coursesRes.data)
-    if (enrollmentsRes.data) setEnrollments(enrollmentsRes.data)
+    if (usersRes.data) setUsers(usersRes.data as User[])
+    if (coursesRes.data) setCourses(coursesRes.data as Course[])
+    if (enrollmentsRes.data) setEnrollments(enrollmentsRes.data as Enrollment[])
     setLoading(false)
   }
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     const { error } = await supabase
       .from('profiles')
-      .update({ role: newRole })
+      .update({ role: newRole } as never)
       .eq('id', userId)
 
     if (!error) {
@@ -79,7 +79,7 @@ export default function AdminUsersPage() {
     const { error } = await supabase.from('enrollments').insert({
       user_id: selectedUser.id,
       course_id: selectedCourse,
-    })
+    } as never)
 
     if (!error) {
       fetchData()

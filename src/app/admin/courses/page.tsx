@@ -52,16 +52,17 @@ export default function AdminCoursesPage() {
       .order('created_at', { ascending: false })
 
     if (!error && data) {
-      setCourses(data)
+      const coursesData = data as Course[]
+      setCourses(coursesData)
       // 각 강의의 비디오 수 조회
-      for (const course of data) {
+      for (const course of coursesData) {
         const { data: videos } = await supabase
           .from('videos')
           .select('id, title, order_index')
           .eq('course_id', course.id)
           .order('order_index')
         if (videos) {
-          setCourseVideos(prev => ({ ...prev, [course.id]: videos }))
+          setCourseVideos(prev => ({ ...prev, [course.id]: videos as Video[] }))
         }
       }
     }
@@ -74,7 +75,7 @@ export default function AdminCoursesPage() {
     if (editingCourse) {
       const { error } = await supabase
         .from('courses')
-        .update(formData)
+        .update(formData as never)
         .eq('id', editingCourse.id)
 
       if (!error) {
@@ -82,7 +83,7 @@ export default function AdminCoursesPage() {
         closeModal()
       }
     } else {
-      const { error } = await supabase.from('courses').insert(formData)
+      const { error } = await supabase.from('courses').insert(formData as never)
 
       if (!error) {
         fetchCourses()
