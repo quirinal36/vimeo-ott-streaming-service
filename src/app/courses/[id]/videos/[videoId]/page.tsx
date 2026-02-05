@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useState, useCallback } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import Hls from 'hls.js'
+import VideoPlayer from '@/components/VideoPlayer'
 
 interface VideoData {
   id: string
@@ -14,37 +14,41 @@ interface VideoData {
 
 export default function VideoPlayerPage() {
   const params = useParams()
-  const router = useRouter()
   const courseId = params.id as string
   const videoId = params.videoId as string
 
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const hlsRef = useRef<Hls | null>(null)
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
-
   const [video, setVideo] = useState<VideoData | null>(null)
   const [signedUrl, setSignedUrl] = useState('')
+  const [initialProgress, setInitialProgress] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
 
-  // Signed URL 가져오기
-  const fetchSignedUrl = useCallback(async () => {
+  // Signed URL 및 초기 데이터 가져오기
+  const fetchData = useCallback(async () => {
     try {
-      const response = await fetch(`/api/videos/${videoId}/signed-url`, {
+      // Signed URL 가져오기
+      const urlResponse = await fetch(`/api/videos/${videoId}/signed-url`, {
         method: 'POST',
       })
 
-      if (!response.ok) {
-        const data = await response.json()
+      if (!urlResponse.ok) {
+        const data = await urlResponse.json()
         throw new Error(data.error || '영상을 불러올 수 없습니다.')
       }
 
-      const data = await response.json()
-      setVideo(data.video)
-      setSignedUrl(data.signedUrl)
+      const urlData = await urlResponse.json()
+      setVideo(urlData.video)
+      setSignedUrl(urlData.signedUrl)
+
+      // 이전 시청 위치 가져오기
+      const progressResponse = await fetch(`/api/videos/${videoId}/progress`)
+      if (progressResponse.ok) {
+        const progressData = await progressResponse.json()
+        if (progressData.watchHistory?.progress_seconds > 0) {
+          setInitialProgress(progressData.watchHistory.progress_seconds)
+        }
+      }
+
       setLoading(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : '영상을 불러올 수 없습니다.')
@@ -53,7 +57,7 @@ export default function VideoPlayerPage() {
   }, [videoId])
 
   // 시청 진도 저장
-  const saveProgress = useCallback(async (progressSeconds: number, isCompleted: boolean = false) => {
+  const handleProgressUpdate = useCallback(async (currentTime: number, isCompleted: boolean) => {
     try {
       await fetch(`/api/videos/${videoId}/progress`, {
         method: 'POST',
@@ -61,7 +65,7 @@ export default function VideoPlayerPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          progress_seconds: Math.floor(progressSeconds),
+          progress_seconds: Math.floor(currentTime),
           is_completed: isCompleted,
         }),
       })
@@ -70,132 +74,10 @@ export default function VideoPlayerPage() {
     }
   }, [videoId])
 
-  // 이전 시청 위치 가져오기
-  const fetchProgress = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/videos/${videoId}/progress`)
-      if (response.ok) {
-        const data = await response.json()
-        if (data.watchHistory?.progress_seconds > 0) {
-          setCurrentTime(data.watchHistory.progress_seconds)
-          // 비디오가 로드된 후 이전 위치로 이동
-          if (videoRef.current) {
-            videoRef.current.currentTime = data.watchHistory.progress_seconds
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Progress fetch error:', err)
-    }
-  }, [videoId])
-
-  // HLS 플레이어 초기화
-  useEffect(() => {
-    if (!signedUrl || !videoRef.current) return
-
-    const video = videoRef.current
-
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-      })
-
-      hls.loadSource(signedUrl)
-      hls.attachMedia(video)
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        // 이전 시청 위치로 이동
-        fetchProgress()
-      })
-
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              console.error('네트워크 오류, 재시도 중...')
-              hls.startLoad()
-              break
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              console.error('미디어 오류, 복구 중...')
-              hls.recoverMediaError()
-              break
-            default:
-              setError('영상을 재생할 수 없습니다.')
-              hls.destroy()
-              break
-          }
-        }
-      })
-
-      hlsRef.current = hls
-
-      return () => {
-        hls.destroy()
-      }
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari 네이티브 HLS 지원
-      video.src = signedUrl
-      fetchProgress()
-    }
-  }, [signedUrl, fetchProgress])
-
-  // 주기적으로 진도 저장 (10초마다)
-  useEffect(() => {
-    if (isPlaying) {
-      progressIntervalRef.current = setInterval(() => {
-        if (videoRef.current) {
-          saveProgress(videoRef.current.currentTime)
-        }
-      }, 10000)
-    }
-
-    return () => {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current)
-      }
-    }
-  }, [isPlaying, saveProgress])
-
-  // 컴포넌트 언마운트 시 진도 저장
-  useEffect(() => {
-    return () => {
-      if (videoRef.current) {
-        saveProgress(videoRef.current.currentTime)
-      }
-    }
-  }, [saveProgress])
-
   // 초기 데이터 로드
   useEffect(() => {
-    fetchSignedUrl()
-  }, [fetchSignedUrl])
-
-  const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime)
-      setDuration(videoRef.current.duration)
-    }
-  }
-
-  const handleEnded = () => {
-    setIsPlaying(false)
-    saveProgress(duration, true) // 완료 표시
-  }
-
-  const handlePlay = () => setIsPlaying(true)
-  const handlePause = () => {
-    setIsPlaying(false)
-    if (videoRef.current) {
-      saveProgress(videoRef.current.currentTime)
-    }
-  }
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
+    fetchData()
+  }, [fetchData])
 
   if (loading) {
     return (
@@ -254,30 +136,51 @@ export default function VideoPlayerPage() {
 
       {/* 비디오 플레이어 */}
       <main className="max-w-6xl mx-auto">
-        <div className="aspect-video bg-black">
-          <video
-            ref={videoRef}
-            className="w-full h-full"
-            controls
-            autoPlay
-            playsInline
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={handleEnded}
-            onPlay={handlePlay}
-            onPause={handlePause}
+        {signedUrl && video && (
+          <VideoPlayer
+            signedUrl={signedUrl}
+            title={video.title}
+            initialProgress={initialProgress}
+            onProgressUpdate={handleProgressUpdate}
           />
-        </div>
+        )}
 
         {/* 비디오 정보 */}
         <div className="px-4 py-6">
           <h2 className="text-xl font-bold text-white mb-2">{video?.title}</h2>
           {video?.description && (
-            <p className="text-gray-400">{video.description}</p>
+            <p className="text-gray-400 mb-4">{video.description}</p>
           )}
 
-          {/* 진도 표시 */}
-          <div className="mt-4 text-sm text-gray-500">
-            {formatTime(currentTime)} / {formatTime(duration || video?.duration_seconds || 0)}
+          {/* 키보드 단축키 안내 */}
+          <div className="mt-6 p-4 bg-gray-800 rounded-lg">
+            <h3 className="text-sm font-medium text-gray-300 mb-3">키보드 단축키</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">Space</kbd>
+                <span className="text-gray-400">재생/일시정지</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">J / L</kbd>
+                <span className="text-gray-400">10초 이동</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">M</kbd>
+                <span className="text-gray-400">음소거</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">F</kbd>
+                <span className="text-gray-400">전체화면</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">0-9</kbd>
+                <span className="text-gray-400">구간 이동</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">↑ / ↓</kbd>
+                <span className="text-gray-400">볼륨 조절</span>
+              </div>
+            </div>
           </div>
         </div>
       </main>

@@ -13,7 +13,7 @@
 ### 1.3 기술 스택
 - **비디오 플랫폼**: Cloudflare Stream
 - **데이터베이스**: Supabase (PostgreSQL)
-- **백엔드**: Node.js / TypeScript
+- **백엔드**: Python / FastAPI
 - **프론트엔드**: React / Next.js
 - **인증**: Supabase Auth + JWT
 
@@ -26,7 +26,7 @@
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │    학생     │────▶│  프론트엔드  │────▶│   백엔드    │────▶│ Cloudflare  │
-│  (브라우저) │◀────│   (React)   │◀────│  (Node.js)  │◀────│   Stream    │
+│  (브라우저) │◀────│   (Next.js) │◀────│  (FastAPI)  │◀────│   Stream    │
 └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
        │                   │                   │
        │                   │                   ▼
@@ -49,7 +49,7 @@
         ↓
 2. 강의 목록 요청 (인증 토큰 포함)
         ↓
-3. 백엔드에서 학생 권한 확인
+3. FastAPI 백엔드에서 학생 권한 확인
         ↓
 4. Cloudflare Stream Signed URL 생성
         ↓
@@ -209,99 +209,500 @@ CREATE TABLE watch_history (
 );
 ```
 
-### 4.2 API 설계
+### 4.2 FastAPI 프로젝트 구조
 
-#### 인증 API (Supabase Auth 활용)
 ```
-POST /auth/signup          - 회원가입
-POST /auth/signin          - 로그인
-POST /auth/signout         - 로그아웃
-GET  /auth/session         - 세션 확인
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI 앱 진입점
+│   ├── config.py               # 환경 변수 설정
+│   ├── dependencies.py         # 의존성 주입 (인증 등)
+│   │
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   ├── auth.py             # 인증 관련 라우터
+│   │   ├── courses.py          # 강의 API
+│   │   ├── videos.py           # 비디오 API
+│   │   └── admin.py            # 관리자 API
+│   │
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── user.py             # 사용자 모델
+│   │   ├── course.py           # 강의 모델
+│   │   ├── video.py            # 비디오 모델
+│   │   └── enrollment.py       # 수강 등록 모델
+│   │
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   ├── user.py             # 사용자 Pydantic 스키마
+│   │   ├── course.py           # 강의 스키마
+│   │   ├── video.py            # 비디오 스키마
+│   │   └── common.py           # 공통 스키마
+│   │
+│   └── services/
+│       ├── __init__.py
+│       ├── supabase.py         # Supabase 클라이언트
+│       ├── cloudflare.py       # Cloudflare Stream 서비스
+│       └── auth.py             # 인증 서비스
+│
+├── requirements.txt
+├── Dockerfile
+└── .env
+```
+
+### 4.3 API 설계
+
+#### 인증 API
+```
+POST /api/auth/signup          - 회원가입
+POST /api/auth/signin          - 로그인
+POST /api/auth/signout         - 로그아웃
+GET  /api/auth/me              - 현재 사용자 정보
 ```
 
 #### 강의 API
 ```
 GET  /api/courses                    - 강의 목록
-GET  /api/courses/:id                - 강의 상세
-GET  /api/courses/:id/videos         - 강의 내 비디오 목록
+GET  /api/courses/{course_id}        - 강의 상세
+GET  /api/courses/{course_id}/videos - 강의 내 비디오 목록
 ```
 
 #### 비디오 API
 ```
-GET  /api/videos/:id                 - 비디오 상세
-POST /api/videos/:id/signed-url      - Signed URL 발급 (인증 필수)
-POST /api/videos/:id/progress        - 시청 진도 저장
+GET  /api/videos/{video_id}          - 비디오 상세
+POST /api/videos/{video_id}/signed-url - Signed URL 발급 (인증 필수)
+POST /api/videos/{video_id}/progress   - 시청 진도 저장
 ```
 
 #### 관리자 API
 ```
 POST /api/admin/courses              - 강의 생성
-PUT  /api/admin/courses/:id          - 강의 수정
+PUT  /api/admin/courses/{course_id}  - 강의 수정
 POST /api/admin/videos               - 비디오 등록
 POST /api/admin/enrollments          - 수강 등록
 ```
 
-### 4.3 Cloudflare Stream 연동 코드 예시
+### 4.4 FastAPI 코드 예시
 
-```typescript
-// Signed URL 생성 (Signing Key 방식)
-import jwt from 'jsonwebtoken';
+#### main.py - 앱 진입점
+```python
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-interface SignedUrlOptions {
-  videoId: string;
-  expiresInHours?: number;
-  downloadable?: boolean;
-}
+from app.config import settings
+from app.routers import auth, courses, videos, admin
 
-export function generateSignedUrl(options: SignedUrlOptions): string {
-  const { videoId, expiresInHours = 2, downloadable = false } = options;
+app = FastAPI(
+    title="Video Streaming API",
+    description="학생용 온라인 강의 비디오 스트리밍 서비스",
+    version="1.0.0"
+)
 
-  const token = jwt.sign(
-    {
-      sub: videoId,
-      kid: process.env.CLOUDFLARE_SIGNING_KEY_ID,
-      exp: Math.floor(Date.now() / 1000) + (expiresInHours * 3600),
-      downloadable,
-      accessRules: [
-        { type: "ip.geoip.country", country: ["KR"], action: "allow" },
-        { type: "any", action: "block" }
-      ]
-    },
-    Buffer.from(process.env.CLOUDFLARE_SIGNING_KEY_PEM!, 'base64'),
-    { algorithm: 'RS256' }
-  );
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.FRONTEND_URL],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-  return `https://customer-${process.env.CLOUDFLARE_CUSTOMER_CODE}.cloudflarestream.com/${videoId}/manifest/video.m3u8?token=${token}`;
-}
+# 라우터 등록
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(courses.router, prefix="/api/courses", tags=["courses"])
+app.include_router(videos.router, prefix="/api/videos", tags=["videos"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
 ```
 
-### 4.4 보안 고려사항
+#### config.py - 환경 설정
+```python
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    # Supabase
+    SUPABASE_URL: str
+    SUPABASE_ANON_KEY: str
+    SUPABASE_SERVICE_ROLE_KEY: str
+
+    # Cloudflare Stream
+    CLOUDFLARE_ACCOUNT_ID: str
+    CLOUDFLARE_API_TOKEN: str
+    CLOUDFLARE_SIGNING_KEY_ID: str
+    CLOUDFLARE_SIGNING_KEY_PEM: str  # base64 encoded
+    CLOUDFLARE_CUSTOMER_CODE: str
+
+    # App
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    class Config:
+        env_file = ".env"
+
+
+settings = Settings()
+```
+
+#### services/cloudflare.py - Cloudflare Stream 서비스
+```python
+import base64
+import time
+from typing import Optional, List
+
+import jwt
+import httpx
+
+from app.config import settings
+
+
+class CloudflareStreamService:
+    def __init__(self):
+        self.account_id = settings.CLOUDFLARE_ACCOUNT_ID
+        self.api_token = settings.CLOUDFLARE_API_TOKEN
+        self.signing_key_id = settings.CLOUDFLARE_SIGNING_KEY_ID
+        self.signing_key_pem = base64.b64decode(settings.CLOUDFLARE_SIGNING_KEY_PEM)
+        self.customer_code = settings.CLOUDFLARE_CUSTOMER_CODE
+        self.base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/stream"
+
+    def generate_signed_url(
+        self,
+        video_id: str,
+        expires_in_hours: int = 2,
+        downloadable: bool = False,
+        allowed_countries: Optional[List[str]] = None
+    ) -> str:
+        """Signed URL 생성 (Signing Key 방식)"""
+
+        exp = int(time.time()) + (expires_in_hours * 3600)
+
+        payload = {
+            "sub": video_id,
+            "kid": self.signing_key_id,
+            "exp": exp,
+            "downloadable": downloadable,
+        }
+
+        # 국가 제한 설정
+        if allowed_countries:
+            payload["accessRules"] = [
+                {"type": "ip.geoip.country", "country": allowed_countries, "action": "allow"},
+                {"type": "any", "action": "block"}
+            ]
+
+        token = jwt.encode(
+            payload,
+            self.signing_key_pem,
+            algorithm="RS256"
+        )
+
+        return f"https://customer-{self.customer_code}.cloudflarestream.com/{video_id}/manifest/video.m3u8?token={token}"
+
+    async def get_video_details(self, video_id: str) -> dict:
+        """Cloudflare Stream에서 비디오 상세 정보 조회"""
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.base_url}/{video_id}",
+                headers={"Authorization": f"Bearer {self.api_token}"}
+            )
+            response.raise_for_status()
+            return response.json()["result"]
+
+    async def list_videos(self) -> List[dict]:
+        """Cloudflare Stream의 모든 비디오 목록 조회"""
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                self.base_url,
+                headers={"Authorization": f"Bearer {self.api_token}"}
+            )
+            response.raise_for_status()
+            return response.json()["result"]
+
+
+cloudflare_service = CloudflareStreamService()
+```
+
+#### services/supabase.py - Supabase 클라이언트
+```python
+from supabase import create_client, Client
+
+from app.config import settings
+
+
+def get_supabase_client() -> Client:
+    """일반 Supabase 클라이언트 (anon key)"""
+    return create_client(
+        settings.SUPABASE_URL,
+        settings.SUPABASE_ANON_KEY
+    )
+
+
+def get_supabase_admin_client() -> Client:
+    """관리자 Supabase 클라이언트 (service role key)"""
+    return create_client(
+        settings.SUPABASE_URL,
+        settings.SUPABASE_SERVICE_ROLE_KEY
+    )
+```
+
+#### dependencies.py - 인증 의존성
+```python
+from typing import Optional
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+from app.services.supabase import get_supabase_client
+
+security = HTTPBearer()
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> dict:
+    """현재 인증된 사용자 정보 반환"""
+
+    token = credentials.credentials
+    supabase = get_supabase_client()
+
+    try:
+        # Supabase에서 토큰 검증
+        user_response = supabase.auth.get_user(token)
+        if not user_response.user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token"
+            )
+        return user_response.user
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
+
+
+async def get_current_admin_user(
+    current_user: dict = Depends(get_current_user)
+) -> dict:
+    """관리자 권한 확인"""
+
+    supabase = get_supabase_client()
+
+    # profiles 테이블에서 role 확인
+    result = supabase.table("profiles").select("role").eq("id", current_user.id).single().execute()
+
+    if not result.data or result.data.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+
+    return current_user
+```
+
+#### routers/videos.py - 비디오 API 라우터
+```python
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.dependencies import get_current_user
+from app.services.supabase import get_supabase_client
+from app.services.cloudflare import cloudflare_service
+from app.schemas.video import VideoResponse, SignedUrlResponse, ProgressUpdate
+
+router = APIRouter()
+
+
+@router.get("/{video_id}", response_model=VideoResponse)
+async def get_video(
+    video_id: UUID,
+    current_user: dict = Depends(get_current_user)
+):
+    """비디오 상세 정보 조회"""
+
+    supabase = get_supabase_client()
+
+    # 비디오 정보 조회
+    result = supabase.table("videos").select("*, courses(*)").eq("id", str(video_id)).single().execute()
+
+    if not result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video not found"
+        )
+
+    video = result.data
+
+    # 수강 권한 확인
+    enrollment = supabase.table("enrollments").select("*").eq(
+        "user_id", current_user.id
+    ).eq(
+        "course_id", video["course_id"]
+    ).single().execute()
+
+    if not enrollment.data:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enrolled in this course"
+        )
+
+    return video
+
+
+@router.post("/{video_id}/signed-url", response_model=SignedUrlResponse)
+async def get_signed_url(
+    video_id: UUID,
+    current_user: dict = Depends(get_current_user)
+):
+    """Signed URL 발급"""
+
+    supabase = get_supabase_client()
+
+    # 비디오 정보 조회
+    result = supabase.table("videos").select("cloudflare_video_id, course_id").eq("id", str(video_id)).single().execute()
+
+    if not result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video not found"
+        )
+
+    video = result.data
+
+    # 수강 권한 확인
+    enrollment = supabase.table("enrollments").select("*").eq(
+        "user_id", current_user.id
+    ).eq(
+        "course_id", video["course_id"]
+    ).single().execute()
+
+    if not enrollment.data:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enrolled in this course"
+        )
+
+    # Signed URL 생성
+    signed_url = cloudflare_service.generate_signed_url(
+        video_id=video["cloudflare_video_id"],
+        expires_in_hours=2,
+        downloadable=False,
+        allowed_countries=["KR"]
+    )
+
+    return {"signed_url": signed_url, "expires_in": 7200}
+
+
+@router.post("/{video_id}/progress")
+async def update_progress(
+    video_id: UUID,
+    progress: ProgressUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """시청 진도 업데이트"""
+
+    supabase = get_supabase_client()
+
+    # upsert로 시청 기록 업데이트
+    result = supabase.table("watch_history").upsert({
+        "user_id": current_user.id,
+        "video_id": str(video_id),
+        "progress_seconds": progress.progress_seconds,
+        "is_completed": progress.is_completed,
+        "last_watched_at": "now()"
+    }).execute()
+
+    return {"status": "success"}
+```
+
+#### schemas/video.py - Pydantic 스키마
+```python
+from typing import Optional
+from uuid import UUID
+from datetime import datetime
+
+from pydantic import BaseModel
+
+
+class VideoBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    cloudflare_video_id: str
+    duration_seconds: Optional[int] = None
+    order_index: Optional[int] = None
+
+
+class VideoResponse(VideoBase):
+    id: UUID
+    course_id: UUID
+    cloudflare_thumbnail: Optional[str] = None
+    require_signed_url: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SignedUrlResponse(BaseModel):
+    signed_url: str
+    expires_in: int  # seconds
+
+
+class ProgressUpdate(BaseModel):
+    progress_seconds: int
+    is_completed: bool = False
+```
+
+### 4.5 requirements.txt
+
+```txt
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+supabase>=2.3.0
+httpx>=0.26.0
+PyJWT>=2.8.0
+cryptography>=42.0.0
+python-multipart>=0.0.6
+```
+
+### 4.6 보안 고려사항
 
 - Signing Key는 서버 사이드에서만 사용
 - Signed URL 만료 시간: 2시간 (재발급 가능)
 - 국가 제한: 한국(KR)만 허용 (선택적)
 - 다운로드 비활성화
 - Supabase RLS(Row Level Security) 적용
+- FastAPI 의존성 주입을 통한 인증 검증
 
 ---
 
 ## 5. 마일스톤 및 일정
 
 ### M1: 기초 설정 및 인프라
-- 프로젝트 초기 설정
+- 프로젝트 초기 설정 (Next.js + FastAPI)
 - Supabase 프로젝트 구성
 - Cloudflare Stream 계정 설정
 - 환경 변수 구성
 
 ### M2: 사용자 인증 시스템
 - Supabase Auth 연동
+- FastAPI 인증 미들웨어 구현
 - 프로필 테이블 및 RLS 설정
 - 로그인/회원가입 기능
 
 ### M3: 강의 및 비디오 관리
 - 데이터베이스 스키마 생성
-- 강의/비디오 CRUD API
-- Cloudflare Stream 연동
+- FastAPI CRUD API 구현
+- Cloudflare Stream 서비스 연동
 
 ### M4: 비디오 스트리밍 기능
 - Signed URL 생성 기능
@@ -317,9 +718,10 @@ export function generateSignedUrl(options: SignedUrlOptions): string {
 
 ## 6. 환경 변수
 
+### 백엔드 (.env)
 ```env
 # Supabase
-SUPABASE_PROJECT_URL=https://xxx.supabase.co
+SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_ANON_KEY=xxx
 SUPABASE_SERVICE_ROLE_KEY=xxx
 
@@ -331,22 +733,52 @@ CLOUDFLARE_SIGNING_KEY_PEM=xxx  # base64 encoded
 CLOUDFLARE_CUSTOMER_CODE=xxx    # for stream URL
 
 # App
-APP_URL=http://localhost:3000
-NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
+```
+
+### 프론트엔드 (.env.local)
+```env
+# Supabase (클라이언트용)
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
+
+# Backend API
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ---
 
-## 7. 참고 자료
+## 7. 개발 환경 실행
 
-- [Cloudflare Stream - Secure your Stream](https://developers.cloudflare.com/stream/viewing-videos/securing-your-stream/)
-- [Cloudflare Stream API - Token](https://developers.cloudflare.com/api/resources/stream/subresources/token/)
-- [Supabase Auth Documentation](https://supabase.com/docs/guides/auth)
-- [Supabase Database Documentation](https://supabase.com/docs/guides/database)
+### 백엔드 (FastAPI)
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+### 프론트엔드 (Next.js)
+```bash
+cd frontend  # 또는 루트 디렉토리
+npm install
+npm run dev
+```
 
 ---
 
-## 8. 용어 정의
+## 8. 참고 자료
+
+- [Cloudflare Stream - Secure your Stream](https://developers.cloudflare.com/stream/viewing-videos/securing-your-stream/)
+- [Cloudflare Stream API - Token](https://developers.cloudflare.com/api/resources/stream/subresources/token/)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Supabase Auth Documentation](https://supabase.com/docs/guides/auth)
+- [Supabase Python Client](https://supabase.com/docs/reference/python/introduction)
+
+---
+
+## 9. 용어 정의
 
 | 용어 | 설명 |
 |-----|------|
@@ -355,3 +787,5 @@ NODE_ENV=development
 | **Signing Key** | Signed URL을 자체 생성하기 위한 RSA 키 |
 | **Supabase** | PostgreSQL 기반 오픈소스 Firebase 대안 |
 | **RLS** | Row Level Security, 행 수준 보안 정책 |
+| **FastAPI** | Python 기반 고성능 비동기 웹 프레임워크 |
+| **Pydantic** | Python 데이터 검증 및 설정 관리 라이브러리 |
