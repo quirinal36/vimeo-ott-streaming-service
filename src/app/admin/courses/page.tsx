@@ -72,20 +72,32 @@ export default function AdminCoursesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // DB 스키마에 존재하는 필드만 전송
+    const payload: Record<string, unknown> = {
+      title: formData.title,
+      description: formData.description || null,
+      thumbnail_url: formData.thumbnail_url || null,
+      is_published: formData.is_published,
+    }
+
     if (editingCourse) {
       const { error } = await supabase
         .from('courses')
-        .update(formData as never)
+        .update(payload)
         .eq('id', editingCourse.id)
 
-      if (!error) {
+      if (error) {
+        alert(`수정 실패: ${error.message}`)
+      } else {
         fetchCourses()
         closeModal()
       }
     } else {
-      const { error } = await supabase.from('courses').insert(formData as never)
+      const { error } = await supabase.from('courses').insert(payload)
 
-      if (!error) {
+      if (error) {
+        alert(`생성 실패: ${error.message}`)
+      } else {
         fetchCourses()
         closeModal()
       }

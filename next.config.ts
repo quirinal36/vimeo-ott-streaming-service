@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
               "frame-src https://iframe.mediadelivery.net",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://assets.mediadelivery.net",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https://*.b-cdn.net",
+              "img-src 'self' data: https://*.b-cdn.net https://images.unsplash.com https://*.unsplash.com",
               "connect-src 'self' https://*.supabase.co https://localhost:* http://localhost:*",
             ].join("; "),
           },

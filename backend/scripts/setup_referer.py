@@ -35,10 +35,9 @@ HEADERS = {
 
 # 허용할 도메인 목록 (프로덕션 도메인 + 개발 환경)
 ALLOWED_REFERRERS = [
-    "localhost",
-    "127.0.0.1",# 로컬 개발
+    #"localhost"# 로컬 개발
     # 프로덕션 도메인을 아래에 추가하세요:
-    # "yourdomain.com",
+    "https://vimeo-ott-streaming-service-production.up.railway.app",
     # "www.yourdomain.com",
 ]
 
