@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import get_current_user
 from app.services.supabase import get_supabase_admin_client
-from app.services.cloudflare import cloudflare_service
+from app.services.bunny import bunny_service
 from app.schemas.video import VideoResponse, SignedUrlResponse, ProgressUpdate
 from app.schemas.common import StatusResponse
 
@@ -59,7 +59,7 @@ async def get_signed_url(video_id: UUID, current_user: dict = Depends(get_curren
     # 비디오 정보 조회
     result = (
         supabase.table("videos")
-        .select("cloudflare_video_id, course_id")
+        .select("bunny_video_id, course_id")
         .eq("id", str(video_id))
         .single()
         .execute()
@@ -88,20 +88,13 @@ async def get_signed_url(video_id: UUID, current_user: dict = Depends(get_curren
             detail="이 강의에 대한 수강 권한이 없습니다",
         )
 
-    # Signed URL 생성
-    signed_url = cloudflare_service.generate_signed_url(
-        video_id=video["cloudflare_video_id"],
+    # DRM iframe URL 생성
+    iframe_url = bunny_service.generate_iframe_url(
+        video_id=video["bunny_video_id"],
         expires_in_hours=2,
-        downloadable=False,
     )
 
-    iframe_url = cloudflare_service.generate_iframe_url(
-        video_id=video["cloudflare_video_id"],
-        expires_in_hours=2,
-        downloadable=False,
-    )
-
-    return {"signed_url": signed_url, "iframe_url": iframe_url, "expires_in": 7200}
+    return {"iframe_url": iframe_url, "expires_in": 7200}
 
 
 @router.post("/{video_id}/progress", response_model=StatusResponse)
@@ -167,7 +160,7 @@ async def get_progress(video_id: UUID, current_user: dict = Depends(get_current_
         .select("*")
         .eq("user_id", str(current_user.id))
         .eq("video_id", str(video_id))
-        .single()
+        .maybe_single()
         .execute()
     )
 

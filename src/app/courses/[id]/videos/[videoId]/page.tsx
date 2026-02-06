@@ -18,7 +18,7 @@ export default function VideoPlayerPage() {
   const videoId = params.videoId as string
 
   const [video, setVideo] = useState<VideoData | null>(null)
-  const [signedUrl, setSignedUrl] = useState('')
+  const [embedUrl, setEmbedUrl] = useState('')
   const [initialProgress, setInitialProgress] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -38,7 +38,7 @@ export default function VideoPlayerPage() {
 
       const urlData = await urlResponse.json()
       setVideo(urlData.video)
-      setSignedUrl(urlData.signedUrl)
+      setEmbedUrl(urlData.embedUrl)
 
       // 이전 시청 위치 가져오기
       const progressResponse = await fetch(`/api/videos/${videoId}/progress`)
@@ -136,9 +136,9 @@ export default function VideoPlayerPage() {
 
       {/* 비디오 플레이어 */}
       <main className="max-w-6xl mx-auto">
-        {signedUrl && video && (
+        {embedUrl && video && (
           <VideoPlayer
-            signedUrl={signedUrl}
+            embedUrl={embedUrl}
             title={video.title}
             initialProgress={initialProgress}
             onProgressUpdate={handleProgressUpdate}
@@ -151,37 +151,6 @@ export default function VideoPlayerPage() {
           {video?.description && (
             <p className="text-gray-400 mb-4">{video.description}</p>
           )}
-
-          {/* 키보드 단축키 안내 */}
-          <div className="mt-6 p-4 bg-gray-800 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-300 mb-3">키보드 단축키</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">Space</kbd>
-                <span className="text-gray-400">재생/일시정지</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">J / L</kbd>
-                <span className="text-gray-400">10초 이동</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">M</kbd>
-                <span className="text-gray-400">음소거</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">F</kbd>
-                <span className="text-gray-400">전체화면</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">0-9</kbd>
-                <span className="text-gray-400">구간 이동</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 bg-gray-700 rounded text-gray-300">↑ / ↓</kbd>
-                <span className="text-gray-400">볼륨 조절</span>
-              </div>
-            </div>
-          </div>
         </div>
       </main>
     </div>

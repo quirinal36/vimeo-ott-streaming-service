@@ -13,7 +13,7 @@ interface Video {
   title: string
   description: string | null
   course_id: string
-  cloudflare_video_id: string
+  bunny_video_id: string
   duration_seconds: number
   order_index: number
 }
@@ -94,28 +94,26 @@ export default function AdminVideosPage() {
         throw new Error('업로드 URL 요청 실패')
       }
 
-      const { upload_url, cloudflare_video_id } = await uploadUrlRes.json()
+      const { upload_url, bunny_video_id, upload_headers } = await uploadUrlRes.json()
 
-      setUploadProgress({ status: 'uploading', progress: 10, message: 'Cloudflare에 업로드 중...' })
+      setUploadProgress({ status: 'uploading', progress: 10, message: 'Bunny Stream에 업로드 중...' })
 
-      // 2. Cloudflare에 직접 업로드
-      const formDataUpload = new FormData()
-      formDataUpload.append('file', file)
-
+      // 2. Bunny Stream에 직접 업로드 (PUT binary)
       const uploadRes = await fetch(upload_url, {
-        method: 'POST',
-        body: formDataUpload,
+        method: 'PUT',
+        headers: upload_headers,
+        body: file,
       })
 
       if (!uploadRes.ok) {
-        throw new Error('Cloudflare 업로드 실패')
+        throw new Error('Bunny Stream 업로드 실패')
       }
 
       setUploadProgress({ status: 'processing', progress: 70, message: '비디오 처리 중...' })
 
       // 3. 업로드 완료 후 DB 저장
       const completeRes = await fetch(
-        `${process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://localhost:8000'}/api/admin/videos/complete-upload?cloudflare_video_id=${cloudflare_video_id}&course_id=${selectedCourse}&title=${encodeURIComponent(formData.title)}&description=${encodeURIComponent(formData.description || '')}&order_index=${formData.order_index}`,
+        `${process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://localhost:8000'}/api/admin/videos/complete-upload?bunny_video_id=${bunny_video_id}&course_id=${selectedCourse}&title=${encodeURIComponent(formData.title)}&description=${encodeURIComponent(formData.description || '')}&order_index=${formData.order_index}`,
         {
           method: 'POST',
           headers: {
@@ -150,13 +148,13 @@ export default function AdminVideosPage() {
     }
   }
 
-  const handleDeleteVideo = async (videoId: string, cloudflareVideoId: string) => {
+  const handleDeleteVideo = async (videoId: string, bunnyVideoId: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
 
-      // DB에서 삭제 (Cloudflare도 함께 삭제됨)
+      // DB에서 삭제 (Bunny에서도 함께 삭제됨)
       await fetch(
         `${process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://localhost:8000'}/api/admin/videos/${videoId}`,
         {
@@ -328,7 +326,7 @@ export default function AdminVideosPage() {
               <tr key={video.id}>
                 <td className="px-6 py-4">
                   <div className="text-sm font-medium text-gray-900">{video.title}</div>
-                  <div className="text-xs text-gray-500">{video.cloudflare_video_id}</div>
+                  <div className="text-xs text-gray-500">{video.bunny_video_id}</div>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-500">
                   {courses.find(c => c.id === video.course_id)?.title || '-'}
@@ -341,7 +339,7 @@ export default function AdminVideosPage() {
                 </td>
                 <td className="px-6 py-4 text-right text-sm">
                   <button
-                    onClick={() => handleDeleteVideo(video.id, video.cloudflare_video_id)}
+                    onClick={() => handleDeleteVideo(video.id, video.bunny_video_id)}
                     className="text-red-600 hover:text-red-900"
                   >
                     삭제

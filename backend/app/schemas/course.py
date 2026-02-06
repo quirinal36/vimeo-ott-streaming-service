@@ -40,7 +40,7 @@ class VideoSummary(BaseModel):
     title: str
     duration_seconds: Optional[int] = None
     order_index: Optional[int] = None
-    cloudflare_thumbnail: Optional[str] = None
+    bunny_thumbnail: Optional[str] = None
 
     class Config:
         from_attributes = True

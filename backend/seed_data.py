@@ -64,15 +64,15 @@ course_map = {c["title"]: c["id"] for c in courses.data}
 
 print("\nCreating sample videos...")
 
-# 샘플 비디오 데이터 (Cloudflare Stream 테스트 비디오 ID 사용)
-# 실제 Cloudflare Stream 비디오 ID로 교체 필요
+# 샘플 비디오 데이터 (Bunny Stream 테스트 비디오 ID 사용)
+# 실제 Bunny Stream 비디오 ID로 교체 필요
 videos_data = [
     # 웹 개발 기초
     {
         "course_id": course_map.get("웹 개발 기초"),
         "title": "HTML 기초 - 웹 페이지의 구조",
         "description": "HTML 태그와 기본 구조를 배웁니다.",
-        "cloudflare_video_id": "test-video-id-1",  # 실제 ID로 교체 필요
+        "bunny_video_id": "test-video-id-1",  # 실제 ID로 교체 필요
         "duration_seconds": 1800,
         "order_index": 1,
     },
@@ -80,7 +80,7 @@ videos_data = [
         "course_id": course_map.get("웹 개발 기초"),
         "title": "CSS 기초 - 스타일링의 시작",
         "description": "CSS를 사용하여 웹 페이지를 꾸미는 방법을 배웁니다.",
-        "cloudflare_video_id": "test-video-id-2",
+        "bunny_video_id": "test-video-id-2",
         "duration_seconds": 2100,
         "order_index": 2,
     },
@@ -88,7 +88,7 @@ videos_data = [
         "course_id": course_map.get("웹 개발 기초"),
         "title": "JavaScript 입문",
         "description": "JavaScript의 기본 문법을 배웁니다.",
-        "cloudflare_video_id": "test-video-id-3",
+        "bunny_video_id": "test-video-id-3",
         "duration_seconds": 2400,
         "order_index": 3,
     },
@@ -97,7 +97,7 @@ videos_data = [
         "course_id": course_map.get("React 마스터 클래스"),
         "title": "React Hooks 완벽 가이드",
         "description": "useState, useEffect 등 React Hooks를 마스터합니다.",
-        "cloudflare_video_id": "test-video-id-4",
+        "bunny_video_id": "test-video-id-4",
         "duration_seconds": 3600,
         "order_index": 1,
     },
@@ -105,7 +105,7 @@ videos_data = [
         "course_id": course_map.get("React 마스터 클래스"),
         "title": "Context API와 상태 관리",
         "description": "Context API를 사용한 전역 상태 관리를 배웁니다.",
-        "cloudflare_video_id": "test-video-id-5",
+        "bunny_video_id": "test-video-id-5",
         "duration_seconds": 2700,
         "order_index": 2,
     },
@@ -114,7 +114,7 @@ videos_data = [
         "course_id": course_map.get("Python 백엔드 개발"),
         "title": "FastAPI 시작하기",
         "description": "FastAPI로 첫 API 서버를 만들어봅니다.",
-        "cloudflare_video_id": "test-video-id-6",
+        "bunny_video_id": "test-video-id-6",
         "duration_seconds": 2000,
         "order_index": 1,
     },
@@ -122,7 +122,7 @@ videos_data = [
         "course_id": course_map.get("Python 백엔드 개발"),
         "title": "Pydantic과 데이터 검증",
         "description": "Pydantic을 사용한 요청/응답 검증을 배웁니다.",
-        "cloudflare_video_id": "test-video-id-7",
+        "bunny_video_id": "test-video-id-7",
         "duration_seconds": 1500,
         "order_index": 2,
     },
@@ -132,11 +132,11 @@ videos_data = [
 videos_data = [v for v in videos_data if v["course_id"] is not None]
 
 # 기존 비디오 확인
-existing_videos = supabase.table("videos").select("cloudflare_video_id").execute()
-existing_video_ids = {v["cloudflare_video_id"] for v in existing_videos.data} if existing_videos.data else set()
+existing_videos = supabase.table("videos").select("bunny_video_id").execute()
+existing_video_ids = {v["bunny_video_id"] for v in existing_videos.data} if existing_videos.data else set()
 
 # 새 비디오만 추가
-new_videos = [v for v in videos_data if v["cloudflare_video_id"] not in existing_video_ids]
+new_videos = [v for v in videos_data if v["bunny_video_id"] not in existing_video_ids]
 
 if new_videos:
     result = supabase.table("videos").insert(new_videos).execute()

@@ -67,8 +67,8 @@ export interface Database {
           course_id: string
           title: string
           description: string | null
-          cloudflare_video_id: string
-          cloudflare_thumbnail: string | null
+          bunny_video_id: string
+          bunny_thumbnail: string | null
           duration_seconds: number | null
           order_index: number
           require_signed_url: boolean
@@ -79,8 +79,8 @@ export interface Database {
           course_id: string
           title: string
           description?: string | null
-          cloudflare_video_id: string
-          cloudflare_thumbnail?: string | null
+          bunny_video_id: string
+          bunny_thumbnail?: string | null
           duration_seconds?: number | null
           order_index?: number
           require_signed_url?: boolean
@@ -91,8 +91,8 @@ export interface Database {
           course_id?: string
           title?: string
           description?: string | null
-          cloudflare_video_id?: string
-          cloudflare_thumbnail?: string | null
+          bunny_video_id?: string
+          bunny_thumbnail?: string | null
           duration_seconds?: number | null
           order_index?: number
           require_signed_url?: boolean

@@ -35,7 +35,6 @@ export async function POST(
     const video = videoResponse.data
 
     return NextResponse.json({
-      signedUrl: urlData.signed_url,
       embedUrl: urlData.iframe_url,
       video: video ? {
         id: video.id,

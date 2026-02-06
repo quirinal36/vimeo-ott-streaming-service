@@ -110,7 +110,7 @@ export default function AdminDashboard() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">시스템 정보</h2>
           <div className="space-y-2 text-sm text-gray-600">
             <p>백엔드: FastAPI + Supabase</p>
-            <p>비디오 스트리밍: Cloudflare Stream</p>
+            <p>비디오 스트리밍: Bunny Stream</p>
             <p>프론트엔드: Next.js 15</p>
           </div>
         </div>

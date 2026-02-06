@@ -8,14 +8,14 @@ from pydantic import BaseModel
 class VideoBase(BaseModel):
     title: str
     description: Optional[str] = None
-    cloudflare_video_id: str
+    bunny_video_id: str
     duration_seconds: Optional[int] = None
     order_index: Optional[int] = None
 
 
 class VideoCreate(VideoBase):
     course_id: UUID
-    cloudflare_thumbnail: Optional[str] = None
+    bunny_thumbnail: Optional[str] = None
     require_signed_url: bool = True
 
 
@@ -24,14 +24,14 @@ class VideoUpdate(BaseModel):
     description: Optional[str] = None
     duration_seconds: Optional[int] = None
     order_index: Optional[int] = None
-    cloudflare_thumbnail: Optional[str] = None
+    bunny_thumbnail: Optional[str] = None
     require_signed_url: Optional[bool] = None
 
 
 class VideoResponse(VideoBase):
     id: UUID
     course_id: UUID
-    cloudflare_thumbnail: Optional[str] = None
+    bunny_thumbnail: Optional[str] = None
     require_signed_url: bool
     created_at: datetime
 
@@ -40,7 +40,6 @@ class VideoResponse(VideoBase):
 
 
 class SignedUrlResponse(BaseModel):
-    signed_url: str
     iframe_url: str
     expires_in: int  # seconds
 

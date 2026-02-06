@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import get_current_admin_user
 from app.services.supabase import get_supabase_admin_client
-from app.services.cloudflare import cloudflare_service
+from app.services.bunny import bunny_service
 from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse
 from app.schemas.video import VideoCreate, VideoUpdate, VideoResponse
 from app.schemas.enrollment import EnrollmentCreate, EnrollmentResponse
@@ -185,21 +185,21 @@ async def admin_delete_video(
     """비디오 삭제 (관리자)"""
     supabase = get_supabase_admin_client()
 
-    # 비디오 정보 조회 (Cloudflare 삭제용)
+    # 비디오 정보 조회 (Bunny 삭제용)
     video = (
         supabase.table("videos")
-        .select("cloudflare_video_id")
+        .select("bunny_video_id")
         .eq("id", str(video_id))
         .single()
         .execute()
     )
 
-    # Cloudflare에서 비디오 삭제
-    if video.data and video.data.get("cloudflare_video_id"):
+    # Bunny에서 비디오 삭제
+    if video.data and video.data.get("bunny_video_id"):
         try:
-            await cloudflare_service.delete_video(video.data["cloudflare_video_id"])
+            await bunny_service.delete_video(video.data["bunny_video_id"])
         except Exception:
-            pass  # Cloudflare 삭제 실패해도 DB는 삭제
+            pass  # Bunny 삭제 실패해도 DB는 삭제
 
     # 시청 기록 삭제
     supabase.table("watch_history").delete().eq("video_id", str(video_id)).execute()
@@ -220,7 +220,7 @@ async def admin_get_upload_url(
     max_duration_seconds: int = 3600,
     current_user: dict = Depends(get_current_admin_user),
 ):
-    """Cloudflare Direct Upload URL 발급 (관리자)"""
+    """Bunny Stream Upload URL 발급 (관리자)"""
     supabase = get_supabase_admin_client()
 
     # 강의 존재 확인
@@ -238,24 +238,23 @@ async def admin_get_upload_url(
             detail="Course not found",
         )
 
-    # Cloudflare Direct Upload URL 생성
-    result = await cloudflare_service.create_direct_upload(
-        max_duration_seconds=max_duration_seconds,
-        require_signed_urls=True,
-        meta={"title": title, "course_id": str(course_id)},
-    )
+    # Bunny Stream 비디오 생성 및 업로드 URL 발급
+    result = await bunny_service.create_video(title=title)
+    video_guid = result["guid"]
+    upload_url = bunny_service.get_upload_url(video_guid)
 
     return {
-        "upload_url": result["upload_url"],
-        "cloudflare_video_id": result["video_id"],
+        "upload_url": upload_url,
+        "bunny_video_id": video_guid,
         "course_id": str(course_id),
         "title": title,
+        "upload_headers": {"AccessKey": bunny_service.api_key},
     }
 
 
 @router.post("/videos/complete-upload")
 async def admin_complete_upload(
-    cloudflare_video_id: str,
+    bunny_video_id: str,
     course_id: UUID,
     title: str,
     description: str = None,
@@ -266,23 +265,23 @@ async def admin_complete_upload(
     """업로드 완료 후 비디오 정보 저장 (관리자)"""
     supabase = get_supabase_admin_client()
 
-    # Cloudflare에서 비디오 정보 조회
+    # Bunny에서 비디오 정보 조회
     try:
-        cf_video = await cloudflare_service.get_video_details(cloudflare_video_id)
-        duration_seconds = int(cf_video.get("duration", duration_seconds))
-        thumbnail = cf_video.get("thumbnail")
+        bunny_video = await bunny_service.get_video_details(bunny_video_id)
+        duration_seconds = int(bunny_video.get("length", duration_seconds))
+        thumbnail = bunny_service.get_thumbnail_url(bunny_video_id)
     except Exception:
-        thumbnail = None
+        thumbnail = bunny_service.get_thumbnail_url(bunny_video_id)
 
     # 데이터베이스에 비디오 정보 저장
     video_data = {
         "course_id": str(course_id),
         "title": title,
         "description": description,
-        "cloudflare_video_id": cloudflare_video_id,
+        "bunny_video_id": bunny_video_id,
         "duration_seconds": duration_seconds,
         "order_index": order_index,
-        "cloudflare_thumbnail": thumbnail,
+        "bunny_thumbnail": thumbnail,
     }
 
     result = supabase.table("videos").insert(video_data).execute()
@@ -301,16 +300,17 @@ async def admin_get_video_status(
     video_id: str,
     current_user: dict = Depends(get_current_admin_user),
 ):
-    """Cloudflare 비디오 처리 상태 조회 (관리자)"""
+    """Bunny 비디오 처리 상태 조회 (관리자)"""
     try:
-        video_details = await cloudflare_service.get_video_details(video_id)
+        video_details = await bunny_service.get_video_details(video_id)
+        bunny_status = video_details.get("status", 0)
+        status_map = {0: "created", 1: "uploaded", 2: "processing", 3: "transcoding", 4: "finished", 5: "error"}
         return {
             "video_id": video_id,
-            "status": video_details.get("status", {}).get("state", "unknown"),
-            "ready_to_stream": video_details.get("readyToStream", False),
-            "duration": video_details.get("duration"),
-            "thumbnail": video_details.get("thumbnail"),
-            "playback": video_details.get("playback", {}),
+            "status": status_map.get(bunny_status, "unknown"),
+            "ready_to_stream": bunny_status == 4,
+            "duration": video_details.get("length"),
+            "thumbnail": bunny_service.get_thumbnail_url(video_id),
         }
     except Exception as e:
         raise HTTPException(
@@ -319,13 +319,13 @@ async def admin_get_video_status(
         )
 
 
-@router.get("/cloudflare/videos")
-async def admin_list_cloudflare_videos(
+@router.get("/bunny/videos")
+async def admin_list_bunny_videos(
     current_user: dict = Depends(get_current_admin_user),
 ):
-    """Cloudflare Stream 비디오 목록 조회 (관리자)"""
+    """Bunny Stream 비디오 목록 조회 (관리자)"""
     try:
-        videos = await cloudflare_service.list_videos()
+        videos = await bunny_service.list_videos()
         return {"videos": videos}
     except Exception as e:
         raise HTTPException(

@@ -140,7 +140,7 @@ export const coursesApi = {
         title: string;
         duration_seconds: number;
         order_index: number;
-        cloudflare_thumbnail: string | null;
+        bunny_thumbnail: string | null;
       }>;
     }>(`/api/courses/${courseId}`, { token }),
 
@@ -151,7 +151,7 @@ export const coursesApi = {
       description: string | null;
       duration_seconds: number;
       order_index: number;
-      cloudflare_thumbnail: string | null;
+      bunny_thumbnail: string | null;
       progress_seconds: number;
       is_completed: boolean;
     }>>(`/api/courses/${courseId}/videos`, { token }),
@@ -166,8 +166,8 @@ export const videosApi = {
       description: string | null;
       duration_seconds: number;
       course_id: string;
-      cloudflare_video_id: string;
-      cloudflare_thumbnail: string | null;
+      bunny_video_id: string;
+      bunny_thumbnail: string | null;
       order_index: number;
     }>(`/api/videos/${videoId}`, { token }),
 

@@ -97,7 +97,7 @@ export default async function Home() {
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">고화질 스트리밍</h3>
             <p className="text-gray-600">
-              Cloudflare Stream을 통해 안정적인 고화질 영상을 제공합니다.
+              Bunny Stream을 통해 안정적인 고화질 영상을 제공합니다.
             </p>
           </div>
         </div>

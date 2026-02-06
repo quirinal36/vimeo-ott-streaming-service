@@ -7,12 +7,12 @@ class Settings(BaseSettings):
     SUPABASE_ANON_KEY: str
     SUPABASE_SERVICE_ROLE_KEY: str
 
-    # Cloudflare Stream
-    CLOUDFLARE_ACCOUNT_ID: str
-    CLOUDFLARE_API_TOKEN: str
-    CLOUDFLARE_SIGNING_KEY_ID: str
-    CLOUDFLARE_SIGNING_KEY_PEM: str  # base64 encoded
-    CLOUDFLARE_CUSTOMER_CODE: str
+    # Bunny Stream
+    BUNNY_STREAM_API_KEY: str
+    BUNNY_VIDEO_LIBRARY_API_KEY: str
+    BUNNY_VIDEO_LIBRARY_ID: str = "593678"
+    BUNNY_VIDEO_LIBRARY_HOSTNAME: str = "vz-27718a49-df0.b-cdn.net"
+    BUNNY_STREAM_TOKEN_AUTH_KEY: str = ""
 
     # App
     FRONTEND_URL: str = "http://localhost:3000"

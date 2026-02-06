@@ -94,7 +94,7 @@ async def get_course(course_id: UUID, current_user: dict = Depends(get_current_u
     # 비디오 목록 조회
     videos = (
         supabase.table("videos")
-        .select("id, title, duration_seconds, order_index, cloudflare_thumbnail")
+        .select("id, title, duration_seconds, order_index, bunny_thumbnail")
         .eq("course_id", str(course_id))
         .order("order_index")
         .execute()
