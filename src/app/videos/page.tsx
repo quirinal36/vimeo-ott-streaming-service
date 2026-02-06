@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import { VideoListSkeleton } from '@/components/Skeleton'
 
 interface Video {
   id: string
@@ -142,8 +143,20 @@ export default function VideosPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white shadow">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+            <div className="mt-4 flex gap-2">
+              <div className="h-10 w-20 bg-gray-200 rounded-full animate-pulse" />
+              <div className="h-10 w-20 bg-gray-200 rounded-full animate-pulse" />
+              <div className="h-10 w-20 bg-gray-200 rounded-full animate-pulse" />
+            </div>
+          </div>
+        </header>
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <VideoListSkeleton count={8} />
+        </main>
       </div>
     )
   }

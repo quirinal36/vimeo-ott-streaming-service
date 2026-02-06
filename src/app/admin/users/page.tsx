@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { TableSkeleton } from '@/components/Skeleton'
 
 interface User {
   id: string
@@ -106,8 +107,9 @@ export default function AdminUsersPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">사용자 관리</h1>
+        <TableSkeleton rows={5} cols={5} />
       </div>
     )
   }
