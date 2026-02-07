@@ -59,9 +59,18 @@ export default function AdminVideosPage() {
     setLoading(false)
   }
 
+  const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !selectedCourse) return
+    if (!file) return
+
+    // 파일 크기 검증
+    if (file.size > MAX_FILE_SIZE) {
+      alert(`파일 크기가 너무 큽니다. 최대 500MB까지 업로드 가능합니다.\n현재 파일 크기: ${(file.size / 1024 / 1024).toFixed(1)}MB`)
+      e.target.value = ''
+      return
+    }
 
     if (!formData.title) {
       setFormData({ ...formData, title: file.name.replace(/\.[^/.]+$/, '') })
@@ -255,7 +264,7 @@ export default function AdminVideosPage() {
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            비디오 파일 *
+            비디오 파일 * <span className="text-gray-400 font-normal">(최대 500MB)</span>
           </label>
           <input
             type="file"
@@ -264,6 +273,9 @@ export default function AdminVideosPage() {
             onChange={handleFileSelect}
             className="w-full border rounded-lg px-3 py-2"
           />
+          <p className="text-xs text-gray-500 mt-1">
+            지원 형식: MP4, MOV, AVI, MKV, WebM
+          </p>
         </div>
 
         {uploadProgress.status !== 'idle' && (
