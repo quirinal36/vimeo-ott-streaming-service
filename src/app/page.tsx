@@ -16,7 +16,7 @@ export default async function Home() {
       {/* 헤더 */}
       <header className="py-6 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-blue-600">온라인 강의실</h1>
+          <h1 className="text-2xl font-bold text-blue-600">렛츠코딩앤플레이</h1>
           <div className="flex gap-4">
             <Link
               href="/login"
@@ -107,7 +107,7 @@ export default async function Home() {
       <footer className="bg-gray-50 border-t mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <p className="text-center text-gray-500 text-sm">
-            © 2024 온라인 강의실. All rights reserved.
+            © 2024 렛츠코딩앤플레이. All rights reserved.
           </p>
         </div>
       </footer>

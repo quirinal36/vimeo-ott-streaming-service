@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Video Academy - 온라인 교육 플랫폼",
-  description: "고품질 영상 강의로 배우는 온라인 교육 플랫폼",
+  title: "렛츠코딩앤플레이",
+  description: "코딩과 함께 즐거운 학습을 시작하세요",
 };
 
 export default function RootLayout({
